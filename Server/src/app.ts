@@ -1,42 +1,67 @@
-import express from "express";
 import * as fs from "fs";
 import os from "os";
 import path from "path";
-import chokidar, { FSWatcher } from "chokidar"
+import psList from 'ps-list'
+import { JSONFilePreset } from 'lowdb/node' // Currently unused
+
 import DB from "./DB"
-import DataImporter from "./DataImporter";
+import DataImporter from "./DataImporter"
+import WebServer from "./WebServer"
+import SavedVarsWatcher from "./SavedVarsWatcher"
 
 const home = os.homedir();
 const svDir = path.join(home, "Documents", "Elder Scrolls Online", "live", "SavedVariables");
 const svFilePath = path.join(svDir, "Zenithar.lua");
 
-const dbFilePath = path.join(__dirname, "..", "assets", "Zenithar.sqlite")
+global.rootPath = path.join(__dirname, "..")
 
-const watcher = chokidar.watch(svFilePath, {
-    // ignored: (path, stats) => stats?.isFile() && !path.endsWith('.js'), // only watch js files
-    persistent: true,
-    awaitWriteFinish: true
-})
+DB.path = path.join(global.rootPath, "assets", "Zenithar.sqlite")
 
-const app = express()
-// const port = 3000
+const watcher = new SavedVarsWatcher(svFilePath, importSavedVars)
+
+// const watcher = chokidar.watch(svFilePath, {
+//     // ignored: (path, stats) => stats?.isFile() && !path.endsWith('.js'), // only watch js files
+//     persistent: true,
+//     awaitWriteFinish: true
+// })
+
+// const app = express()
+// const port = 8001
+const ws = new WebServer()
 
 process.on("beforeExit", async () => {
-    await watcher.close()
+    await watcher.stop()
     process.exit(0) // if you don't close yourself this will run forever
 });
 
-app.get("/", (req, res) => {
-  res.send("Hello World!");
-});
 
-// app.listen(port, () => {
-//   return console.log(`Express is listening at http://localhost:${port}`);
+// app.set("root", path.resolve(path.join(__dirname, "..")));
+
+// app.engine('handlebars', engine());
+// app.set('view engine', 'handlebars');
+// app.set('views', path.join(__dirname, "..", "views"))
+
+// app.get('/', (req, res) => {
+//     res.render('home', {
+//         title: "Home",
+//     });
+// });
+// app.get("/", (req, res) => {
+//   res.send("Hello World!");
 // });
 
-async function importSavedVars() {
+// app.use(express.static(__dirname + "/node_modules/bootstrap/dist"))
+
+//  app.listen(port, () => {
+//    return console.log(`Express is listening at http://localhost:${port}`);
+//  });
+ws.listen()
+
+async function importSavedVars(svFilePath: string) {
+    global.lowdb = await JSONFilePreset(path.join(global.rootPath, "store.json"), {})
+
     console.log("Opening database for import")
-    const db = await DB.open(dbFilePath)
+    const db = await DB.open()
 
     console.log("About to read '" + svFilePath + "'")
     const lua = fs.readFileSync(svFilePath, "utf8");
@@ -51,25 +76,16 @@ async function importSavedVars() {
 
 async function main() {
     console.log("Initialising database.")
-    const db = await DB.open(dbFilePath)
+    const db = await DB.open()
     await db.createTables()
     await db.close()
 
     // Initial import
     console.log("Initial import")
-    await importSavedVars()
+    await importSavedVars(svFilePath)
 
-    watcher
-        .on("add", async (path) => {
-            console.log(`File ${path} has been added`)
-            await importSavedVars()
-        })
-        .on("change", async (path) => {
-            console.log(`File ${path} has been changed`)
-            await importSavedVars()
-        })
+    watcher.start()
 }
-
 
 (async () => {
     try {

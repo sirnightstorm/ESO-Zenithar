@@ -2,20 +2,25 @@ import sqlite3 from "sqlite3"
 import { open, Database } from "sqlite"
 
 export default class DB {
+    static path: string
     database: Database
     
     private constructor(database: Database) {
         this.database = database
     }
 
-    static async open(path: string): Promise<DB> {
-        console.log("Opening database " + path + "...")
+    static async open(): Promise<DB> {
+        console.log("Opening database " + DB.path + "...")
         const database = await open({
-            filename: path,
+            filename: DB.path,
             driver: sqlite3.Database
             })
-        console.log("Opening database " + path + " -  done")
+        console.log("Opening database " + DB.path + " -  done")
         return new DB(database)
+    }
+
+    async close() {
+        this.database.close()
     }
 
     async createTables() {
@@ -46,6 +51,8 @@ export default class DB {
             )
             `)
     }
+
+    // == UTILITIES ==
 
     async beginTransaction() {
         await this.database.exec("BEGIN TRANSACTION")
@@ -93,7 +100,17 @@ export default class DB {
     }
 
 
-    async close() {
-        this.database.close()
+    // == INFORMATION ==
+
+    async getTopDonations() {
+        return await this.database.all(`
+            select users.name, SUM(qty) as total
+            from txns
+            inner join users on txns.userId = users.id
+            where txns.itemId is null and qty > 0
+            --and txns.timeStamp >= strftime('%s', 'now', '-30 days')
+            group by users.name
+            order by total desc
+        `)
     }
 }

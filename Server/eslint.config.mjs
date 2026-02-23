@@ -24,7 +24,7 @@ export default [
       "@typescript-eslint/no-unused-vars": "warn",
       // "no-console": "warn",
       // "semi": ["error", "always"],
-      "quotes": ["error", "double"],
+      //"quotes": ["error", "double"],
       "no-extra-semi": "warn",
       // "prettier/prettier": "error",
     },

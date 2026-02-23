@@ -1,0 +1,17 @@
+<h1>Donations (last 30 days)</h1>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th scope="col">Name</th>
+            <th scope="col" style="text-align: right">Donation</th>
+        </tr>
+    </thead>
+
+    {{#each data}}
+    <tr>
+        <td>{{name}}</td>
+        <td style="text-align: right">{{toLocaleString total}}</td>
+    </tr>
+    {{/each}}
+</table>
