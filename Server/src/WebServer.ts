@@ -23,10 +23,10 @@ export default class WebServer {
 
         this.app.use(express.static(__dirname + "/../node_modules/bootstrap/dist"))
 
-        this.app.use((err, req, res, next) => {
-            console.error("Express error:", err);
-            res.status(500).send("Internal Server Error");
-        });
+        // this.app.use((err, req, res, next) => {
+        //     console.error("Express error:", err);
+        //     res.status(500).send("Internal Server Error");
+        // });
 
         this.setRoutes()
     }

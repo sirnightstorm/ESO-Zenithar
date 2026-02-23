@@ -11,29 +11,31 @@ export default class DataWriter {
         this.db = db
     }
 
-    async import(lua: string, guildId: string) {
+    async import(lua: string, guildId: string): Promise<boolean> {
 
         const zenitharData: LuaTable = parseZenitharData(lua)
+        var changed = false
 
         const defaultObject = zenitharData["Default"] as LuaTable
         for (const [accountName, accountData] of Object.entries(defaultObject)) {
             console.log(`Importing account ${accountName}`)
-            await this.importGuildData(accountData["$AccountWide"]["guilds"][guildId])
+            const notProcessed = (accountData["$AccountWide"]["processed"] === 0)
+            const hasTxns = await this.importGuildData(accountData["$AccountWide"]["guilds"][guildId])
+            changed ||= (notProcessed && hasTxns)
         }
-        // const accountWide = (zenitharData as any).Default["@SirNightstorm"]["$AccountWide"]
 
-        // const guildData = accountWide.guilds["767808"]
-
-        // console.log(accountWide.guilds["767808"].items)
+        return changed
     }
 
-    private async importGuildData(guildData: object) {
+    private async importGuildData(guildData: object): Promise<boolean> {
         console.log(" - Importing users...")
         await this.importUsers(guildData["users"] as object)
         console.log(" - Importing items...")
         await this.importItems(guildData["items"])
         console.log(" - Importing transactions...")
         await this.importTransactions(guildData["txns"])
+
+        return Object.keys(guildData["txns"]).length > 0
     }
 
     private async importUsers(users: object) {
