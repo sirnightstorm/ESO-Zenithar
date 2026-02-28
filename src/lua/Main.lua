@@ -7,7 +7,6 @@ Zen = {
 	},
 	data = {
 		processed = 0,
-		guilds = {},
 	},
 }
 
@@ -19,7 +18,6 @@ local prefsDefaults = {
 
 local dataDefaults = {
 	processed = 0,
-	guilds = {}
 }
 
 local logger = LibDebugLogger and LibDebugLogger(Zen.name)
@@ -38,15 +36,18 @@ function Zen.LogWarning(...)
 	end
 end
 
-function Zen:ResetGuild(guildId)
-	Zen.Log("Resetting guild '%s'", GetGuildName(guildId))
-	self.data.guilds[guildId] = {
-		lastEvent = {},
-		users = {},
-		items = {},
-		txns = {},
-		ids = {},
-	}
+function Zen:GetGuildData(guildId)
+	if not self.data["guild:"..guildId] then
+		Zen.Log("Resetting guild '%s'", GetGuildName(guildId))
+		self.data["guild:"..guildId] = {
+			lastEvent = {},
+			users = {},
+			items = {},
+			txns = {},
+			ids = {},
+		}
+	end
+	return self.data["guild:"..guildId]
 end
 
 function Zen:MonitorGuild()
@@ -54,8 +55,6 @@ function Zen:MonitorGuild()
 	if self.prefs.guildId == nil then return end
 	local guildId = self.prefs.guildId
 	if guildId == false or guildId == 0 then return end
-
-	if not self.data.guilds[guildId] then self:ResetGuild(guildId) end
 
 	LibHistoire:OnReady(function(lib)
 		self:ProcessItems(self, lib, guildId, GUILD_HISTORY_EVENT_CATEGORY_BANKED_ITEM)
@@ -71,9 +70,10 @@ function Zen:ProcessItems(self, lib, guildId, eventCategory)
 
 	processor:Stop()
 
-	local started = processor:StartStreaming(self.data.guilds[guildId].lastEvent[eventCategory], function(event)
+	local guildData = self:GetGuildData(guildId)
+	local started = processor:StartStreaming(guildData.lastEvent[eventCategory], function(event)
 		self:ProcessEvent(event)
-		self.data.guilds[guildId].lastEvent[eventCategory] = event:GetEventInfo().eventId
+		guildData.lastEvent[eventCategory] = event:GetEventInfo().eventId
 	end)
 
 	if not started then
@@ -96,22 +96,25 @@ end
 
 function Zen:GetUser(user, timestampS)
 	local guildId = self.prefs.guildId
+	local guildData = self:GetGuildData(guildId)
 
-	if self.data.guilds[guildId].users[user] == nil then
-		self.data.guilds[guildId].users[user] = {
+	if guildData.users[user] == nil then
+		guildData.users[user] = {
 			id = self:GetNextId('user'),
-			initialScan = timestampS,
 			rankIndex = getRankIndex(guildId, user), -- FIXME: Need to re-run this every load?
+			--initialScan = timestampS,
 		}
-		Zen.Log("Created user '%s' id %d", user, self.data.guilds[guildId].users[user].id)
+		Zen.Log("Created user '%s' id %d", user, guildData.users[user].id)
 	end
 
-	return self.data.guilds[guildId].users[user]
+	return guildData.users[user]
 end
 
 function Zen:GetUserName(userId)
 	local guildId = self.prefs.guildId
-	for name, data in pairs(self.data.guilds[guildId].users) do
+	local guildData = self:GetGuildData(guildId)
+
+	for name, data in pairs(guildData.users) do
 		if data.id == userId then
 			return name
 		end
@@ -121,17 +124,19 @@ end
 
 function Zen:GetItem(itemLink)
 	local guildId = self.prefs.guildId
-	local items = self.data.guilds[guildId].items
-	local name = GetItemLinkName(itemLink)
-	local icon = GetItemLinkInfo(itemLink)
+	local guildData = self:GetGuildData(guildId)
+
+	local items = guildData.items
+	local name = zo_strformat("<<!AC:1>>", GetItemLinkName(itemLink))
+	--local icon = GetItemLinkInfo(itemLink)
 
 	if items[itemLink] == nil then
 		items[itemLink] = {
 			id = self:GetNextId('item'),
 			name = name,
-			icon = icon,
+			--icon = icon,
 		}
-		Zen.Log("Created item '%s' id %d", name, self.data.guilds[guildId].items[itemLink].id)
+		Zen.Log("Created item '%s' id %d", name, guildData.items[itemLink].id)
 	end
 
 	return items[itemLink]
@@ -187,7 +192,7 @@ function Zen:ProcessCashEvent(userObj, event, info)
 	end
 end
 
-function Zen:StoreTransaction(userObj, txnType, info, event, price)
+function Zen:StoreTransaction(userObj, txnType, info, event, gold)
 	-- userObj.userName, info.eventId, event:GetEventTimestampS(), qty, info.itemLink, price
 	--local guildName = GetGuildName(self.prefs.guildId)
 	--local userName = userObj.userName:sub(2)
@@ -200,46 +205,59 @@ function Zen:StoreTransaction(userObj, txnType, info, event, price)
 
 	if txnType == "+item" then
 		itemId = self:GetItem(info.itemLink).id
+		gold = math.floor(gold + 0.5)
 	elseif txnType == "-item" then
 		itemId = self:GetItem(info.itemLink).id
 		qty = -qty
+		gold = -math.floor(gold + 0.5)
 	elseif txnType == "+gold" then
-		qty = info.amount
+		gold = info.amount
+		qty = nil
 	elseif txnType == "-gold" then
-		qty = -info.amount
+		gold = -info.amount
+		qty = nil
 	end
 
-	--if not Zen.data.guilds[guildName] then
-	--	Zen.data.guilds[guildName] = {}
-	--	Zen.data.guilds[guildName]['_lastEvent'] = {}
-	--	d(self.displayName .. ": create guild")
+	--if itemId ~= nil then
+	--	Zen.Log("Store item transaction %d for %s", eventId, userName)
+	--	data = string.format("%s~%d~%d~%s~%d", userId, timestampS, qty, itemId, price)
+	--else
+	--	Zen.Log("Store gold transaction %d for %s", eventId, userName)
+	--	data = string.format("%s~%d~%d", userId, timestampS, qty)
 	--end
-	local data
-	if itemId ~= nil then
-		Zen.Log("Store item transaction %d for %s", eventId, userName)
-		data = string.format("%s~%d~%d~%s~%d", userId, timestampS, qty, itemId, price)
-	else
-		Zen.Log("Store gold transaction %d for %s", eventId, userName)
-		data = string.format("%s~%d~%d", userId, timestampS, qty)
-	end
 
-	Zen.data.guilds[self.prefs.guildId].txns[eventId] = data
+	self:GetGuildData(self.prefs.guildId).txns[eventId] = {
+		ts = timestampS,
+		user = userId,
+		gold = gold,
+		qty = qty,
+		item = itemId
+	}
 end
 
 function Zen:GetNextId(namespace)
-	self.data.guilds[self.prefs.guildId].ids[namespace] = (self.data.guilds[self.prefs.guildId].ids[namespace] or 0) + 1
-	return self.data.guilds[self.prefs.guildId].ids[namespace]
+	local guildData = self:GetGuildData(self.prefs.guildId)
+	guildData.ids[namespace] = (guildData.ids[namespace] or 0) + 1
+	return guildData.ids[namespace]
 end
 
 function Zen:ClearData()
-	Zen.Log("Clearing down data for guild '%s'", GetGuildName(Zen.prefs.guildId))
-	self.data.guilds[self.prefs.guildId].users = {}
-	self.data.guilds[self.prefs.guildId].items = {}
-	self.data.guilds[self.prefs.guildId].txns = {}
-	self.data.guilds[self.prefs.guildId].ids = {}
+	Zen.Log("Clearing down data for guild '%s'", GetGuildName(self.prefs.guildId))
+	local guildData = self:GetGuildData(self.prefs.guildId)
+	guildData.users = {}
+	guildData.items = {}
+	guildData.txns = {}
+	guildData.ids = {}
 	Zen.data.processed = 0
 end
 
+function Zen.Cmd(txt)
+	if txt == "reset" then
+		Zen.data["guild:"..Zen.prefs.guildId] = nil
+		Zen.Log("Cleared data for guild '%s'", GetGuildName(Zen.prefs.guildId))
+		Zen:MonitorGuild()
+	end
+end
 
 function Zen.OnAddOnLoaded(_, addon)
 	if addon ~= Zen.name then return end
@@ -252,7 +270,7 @@ function Zen.OnAddOnLoaded(_, addon)
 	end
 
 	--Zen:Menu()
-	--SLASH_COMMANDS["/zenithar"] = Zenithar.Cmd
+	SLASH_COMMANDS["/zenithar"] = Zen.Cmd
 	if Zen.prefs.disableWarnings == false then
 		if MasterMerchant == nil and TamrielTradeCentrePrice == nil then
 			CHAT_SYSTEM:AddMessage(Zen.displayName .. " -- \n|cFF0000ERROR: Master Merchant and Tamriel Trade Centre addons were not found.|r\nDefault system prices will be used instead!")
@@ -270,7 +288,6 @@ function Zen.OnAddOnLoaded(_, addon)
 
 	--Zen.window:Init()
 	--Zen.userWindow:Init()
-
 end
 
 EVENT_MANAGER:RegisterForEvent(Zen.name, EVENT_ADD_ON_LOADED, Zen.OnAddOnLoaded)
