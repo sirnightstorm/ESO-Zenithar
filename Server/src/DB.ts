@@ -30,7 +30,7 @@ export default class DB {
                 name TEXT,
                 rankIndex INTEGER
             );
-            CREATE INDEX IF NOT EXISTS idx_users_name ON users (name);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_users_name ON users (name);
             
             CREATE TABLE IF NOT EXISTS items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,17 +38,18 @@ export default class DB {
                 name TEXT,
                 icon TEXT
             );
-            CREATE INDEX IF NOT EXISTS idx_items_itemLink ON items (itemLink);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_items_itemLink ON items (itemLink);
             
             CREATE TABLE IF NOT EXISTS txns (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                eventId INTEGER,
+                eventId INTEGER PRIMARY KEY,
                 userId INTEGER,
                 timeStamp INTEGER,
                 qty INTEGER,
                 itemId INTEGER,
                 price INTEGER
-            )
+            );
+            CREATE INDEX IF NOT EXISTS idx_txns_user ON txns (userId);
+
             `)
     }
 
@@ -114,3 +115,11 @@ export default class DB {
         `)
     }
 }
+
+/*
+select users.name as player, items.name as item, datetime( timeStamp, 'unixepoch' ) as time, qty, price
+from txns
+inner join users on txns.userId = users.id
+inner join items on txns.itemId = items.id
+order by timestamp desc
+*/
