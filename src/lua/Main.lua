@@ -7,6 +7,7 @@ Zen = {
 	},
 	data = {
 		processed = 0,
+		language = ""
 	},
 }
 
@@ -268,6 +269,8 @@ function Zen.OnAddOnLoaded(_, addon)
 	if Zen.data.processed == 1 then
 		Zen:ClearData()
 	end
+
+	Zen.data.language = Zen.GetCurrentLanguage()
 
 	--Zen:Menu()
 	SLASH_COMMANDS["/zenithar"] = Zen.Cmd

@@ -30,3 +30,13 @@ function Zen:GetPrice(item)
 	end
 	return price
 end
+
+local _lang
+
+function Zen.GetCurrentLanguage()
+	if _lang == nil then
+		_lang = GetCVar("language.2")
+		_lang = string.lower(_lang)
+	end
+	return _lang
+end
