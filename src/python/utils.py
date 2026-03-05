@@ -9,6 +9,39 @@ def copy(wildcard, dest):
     for file in glob.glob(wildcard):
         shutil.copy(file, dest)
 
+def remake_dir(directory):
+    if os.path.exists(directory):
+        shutil.rmtree(directory)
+    os.mkdir(directory)
+
+# texconv -o ..\..\media -r -y -ft dds -f DXT5 -m 2 verticalbar-assets\*.png
+def convert_textures():
+    remake_dir("build/media")
+
+    convert_pngs_to_dds("src\\media\\status-icon-assets", "build\\media")
+
+def convert_pngs_to_dds(src_folder, dst_folder, texconv_path="texconv"):
+    # Ensure destination exists
+    os.makedirs(dst_folder, exist_ok=True)
+
+    for filename in os.listdir(src_folder):
+        if not filename.lower().endswith(".png"):
+            print(f"{filename} is not a png file")
+            continue
+
+        src_path = os.path.join(src_folder, filename)
+        base = os.path.splitext(filename)[0]
+        dst_path = os.path.join(dst_folder, base + ".dds")
+
+        # Check timestamps
+        src_mtime = os.path.getmtime(src_path)
+        dst_mtime = os.path.getmtime(dst_path) if os.path.exists(dst_path) else -1
+
+        if src_mtime > dst_mtime:
+            print(f"Converting {src_path} → {dst_path}")
+            subprocess.run(['texconv', '-o', dst_folder, '-r', '-y', '-ft', 'dds', '-f', 'DXT5', '-m', '2', src_path], check=True)
+        else:
+            print(f"Skipping {filename}, DDS is up to date.")
 
 def push(dest_dir, dir_list):
     if os.path.exists(dest_dir):
@@ -19,6 +52,9 @@ def push(dest_dir, dir_list):
     copy(r'src/lua/*.lua', dest_dir)
     copy(r'src/*.addon', dest_dir)
     copy(r'src/xml/*.xml', dest_dir)
+
+    os.mkdir(f"{dest_dir}/media")
+    copy(r'build/media/*.dds', f"{dest_dir}/media")
 
     for dir_name in dir_list:
         shutil.copytree(dir_name, f'{dest_dir}/{dir_name}')

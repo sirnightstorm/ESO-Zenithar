@@ -1,13 +1,9 @@
 function Zen:GetPrice(item)
-	local price = 0
+	local price
 	if item == "gold" then
 		price = 1
 	else
-		if MasterMerchant ~= nil then
-			local itemStats = MasterMerchant:itemStats(item, true)
-			price = itemStats.avgPrice
-		end
-		if TamrielTradeCentrePrice ~= nil and (MasterMerchant == nil or price == nil) then
+		if TamrielTradeCentrePrice ~= nil then
 			local priceInfo = TamrielTradeCentrePrice:GetPriceInfo(item)
 			if priceInfo ~= nil then
 				if priceInfo.SuggestedPrice ~= nil then
@@ -15,11 +11,15 @@ function Zen:GetPrice(item)
 				elseif priceInfo.Avg ~= nil then
 					price = priceInfo.Avg
 				else
-					price = 0
+					price = nil
 				end
 			else
-				price = 0
+				price = nil
 			end
+		end
+		if MasterMerchant ~= nil and price == nil then
+			local itemStats = MasterMerchant:itemStats(item, true)
+			price = itemStats.avgPrice
 		end
 		if price == nil or price == 0 then
 			_, price, _, _, _ = GetItemLinkInfo(item)

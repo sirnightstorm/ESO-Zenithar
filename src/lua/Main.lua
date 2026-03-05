@@ -2,6 +2,7 @@ Zen = {
 	name = "Zenithar",
 	displayName = "Zenithar",
 	processors = {},
+	lastEvent = nil,
 	prefs = {
 		guildId = 767808,
 	},
@@ -14,7 +15,8 @@ Zen = {
 local prefsDefaults = {
 	disableWarnings = false,
 	guildId = 767808,
-	loggingEnabled = true
+	loggingEnabled = true,
+	showWindow = true
 }
 
 local dataDefaults = {
@@ -22,8 +24,6 @@ local dataDefaults = {
 }
 
 local logger = LibDebugLogger and LibDebugLogger(Zen.name)
-
-local _events = {}
 
 function Zen.Log(...)
 	if logger and Zen.prefs and Zen.prefs["loggingEnabled"] then
@@ -71,6 +71,8 @@ function Zen:ProcessItems(self, lib, guildId, eventCategory)
 
 	processor:Stop()
 
+	processor:SetReceiveMissedEventsOutsideIterationRange(true)
+
 	local guildData = self:GetGuildData(guildId)
 	local started = processor:StartStreaming(guildData.lastEvent[eventCategory], function(event)
 		self:ProcessEvent(event)
@@ -86,6 +88,7 @@ function Zen:GetProcessor(lib, guildId, eventCategory)
 	if not self.processors[guildId] then self.processors[guildId] = {} end
 	if not self.processors[guildId][eventCategory] then
 		self.processors[guildId][eventCategory] = lib:CreateGuildHistoryProcessor(guildId, eventCategory, "Zenithar")
+
 	end
 	return self.processors[guildId][eventCategory]
 end
@@ -234,6 +237,10 @@ function Zen:StoreTransaction(userObj, txnType, info, event, gold)
 		qty = qty,
 		item = itemId
 	}
+
+	self.lastEvent = GetFrameTimeMilliseconds()
+	self:UpdateWindow()
+	self:PlaySound()
 end
 
 function Zen:GetNextId(namespace)
@@ -252,11 +259,21 @@ function Zen:ClearData()
 	Zen.data.processed = 0
 end
 
+function Zen:PlaySound()
+	PlaySound(SOUNDS.FENCE_ITEM_LAUNDERED)
+	--/script PlaySound(SOUNDS.FENCE_ITEM_LAUNDERED) -- GUILD_HERALDRY_APPLIED -- ALLIANCE_POINT_TRANSACT
+	-- CHAMPION_STAR_STAGE_UP -- EVENT_TICKET_TRANSACT -- GROUP_FINDER_REFRESH_SEARCH
+end
+
 function Zen.Cmd(txt)
 	if txt == "reset" then
 		Zen.data["guild:"..Zen.prefs.guildId] = nil
 		Zen.Log("Cleared data for guild '%s'", GetGuildName(Zen.prefs.guildId))
 		Zen:MonitorGuild()
+	else
+		-- TESTING!
+		Zen.lastEvent = GetFrameTimeMilliseconds()
+		Zen:UpdateWindow()
 	end
 end
 
@@ -287,10 +304,8 @@ function Zen.OnAddOnLoaded(_, addon)
 		Zen.Log("Starting to monitor guild '%s'", GetGuildName(Zen.prefs.guildId))
 		Zen:MonitorGuild()
 	end
-	--Zen.AdjustContextMenus()
 
-	--Zen.window:Init()
-	--Zen.userWindow:Init()
+	Zen:CreateWindow()
 end
 
 EVENT_MANAGER:RegisterForEvent(Zen.name, EVENT_ADD_ON_LOADED, Zen.OnAddOnLoaded)

@@ -16,6 +16,8 @@ import utils
 utils.check_dependencies("Zenithar", "## DependsOn:", True)
 utils.check_dependencies("Zenithar", "## OptionalDependsOn:", False)
 
+utils.convert_textures()
+
 utils.push(f"{home_dir}/Documents/Elder Scrolls Online/live/AddOns/Zenithar", [])
 utils.push(f"{home_dir}/Documents/Elder Scrolls Online/pts/AddOns/Zenithar", [])
 
