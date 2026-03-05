@@ -16,7 +16,7 @@ def remake_dir(directory):
 
 # texconv -o ..\..\media -r -y -ft dds -f DXT5 -m 2 verticalbar-assets\*.png
 def convert_textures():
-    remake_dir("build/media")
+    os.makedirs("build\\media", exist_ok=True) # remake_dir("build/media")
 
     convert_pngs_to_dds("src\\media\\status-icon-assets", "build\\media")
 

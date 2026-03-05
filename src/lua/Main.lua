@@ -53,18 +53,22 @@ end
 
 function Zen:MonitorGuild()
 	EVENT_MANAGER:UnregisterForUpdate(self.name)
-	if self.prefs.guildId == nil then return end
 	local guildId = self.prefs.guildId
-	if guildId == false or guildId == 0 then return end
+	if guildId == nil or guildId == false or guildId == 0 then return end
 
 	LibHistoire:OnReady(function(lib)
-		self:ProcessItems(self, lib, guildId, GUILD_HISTORY_EVENT_CATEGORY_BANKED_ITEM)
-		self:ProcessItems(self, lib, guildId, GUILD_HISTORY_EVENT_CATEGORY_BANKED_CURRENCY)
+		self:ProcessItems(lib, guildId, GUILD_HISTORY_EVENT_CATEGORY_BANKED_ITEM)
+		self:ProcessItems(lib, guildId, GUILD_HISTORY_EVENT_CATEGORY_BANKED_CURRENCY)
 	end)
 end
 
-function Zen:ProcessItems(self, lib, guildId, eventCategory)
-	local processor = self:GetProcessor(lib, guildId, eventCategory) --lib:CreateGuildHistoryProcessor(guildId, eventCategory, "ExcessiveWithdrawals")
+function Zen:ProcessItems(lib, guildId, eventCategory)
+	if not self.processors[guildId] then self.processors[guildId] = {} end
+	if not self.processors[guildId][eventCategory] then
+		self.processors[guildId][eventCategory] = lib:CreateGuildHistoryProcessor(guildId, eventCategory, "Zenithar")
+	end
+	local processor = self.processors[guildId][eventCategory]
+
 	if not processor then
 		return -- the processor could not be created
 	end
@@ -82,15 +86,6 @@ function Zen:ProcessItems(self, lib, guildId, eventCategory)
 	if not started then
 		Zen.LogWarning("Failed to start processor for category %d", eventCategory)
 	end
-end
-
-function Zen:GetProcessor(lib, guildId, eventCategory)
-	if not self.processors[guildId] then self.processors[guildId] = {} end
-	if not self.processors[guildId][eventCategory] then
-		self.processors[guildId][eventCategory] = lib:CreateGuildHistoryProcessor(guildId, eventCategory, "Zenithar")
-
-	end
-	return self.processors[guildId][eventCategory]
 end
 
 local function getRankIndex(guildId, userName)
@@ -260,7 +255,12 @@ function Zen:ClearData()
 end
 
 function Zen:PlaySound()
-	PlaySound(SOUNDS.FENCE_ITEM_LAUNDERED)
+	if not self.soundQueue then
+		self.soundQueue = ZO_QueuedSoundPlayer:New(1000)
+	end
+	if not self.soundQueue:IsPlaying() then
+		self.soundQueue:PlaySound(SOUNDS.FENCE_ITEM_LAUNDERED, 1000)
+	end
 	--/script PlaySound(SOUNDS.FENCE_ITEM_LAUNDERED) -- GUILD_HERALDRY_APPLIED -- ALLIANCE_POINT_TRANSACT
 	-- CHAMPION_STAR_STAGE_UP -- EVENT_TICKET_TRANSACT -- GROUP_FINDER_REFRESH_SEARCH
 end
