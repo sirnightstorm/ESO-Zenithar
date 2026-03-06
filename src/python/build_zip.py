@@ -25,29 +25,31 @@ addOnVersion = int(versionMatch.group(1))*10000 + int(versionMatch.group(2))*100
 
 print(f"AddOnVersion {addOnVersion}")
 
-if os.path.exists("_build/AutoRecruit"):
-    shutil.rmtree('_build/AutoRecruit')
+if os.path.exists("build/Zenithar"):
+    shutil.rmtree('build/Zenithar')
 
-os.mkdir('_build/AutoRecruit')
+os.mkdir('build/Zenithar')
+os.mkdir('build/Zenithar/media')
 
-copy(r'*.lua', '_build/AutoRecruit')
-copy(r'*.txt', '_build/AutoRecruit')
-copy(r'*.xml', '_build/AutoRecruit')
+copy(r'src/lua/*.lua', 'build/Zenithar')
+# copy(r'src/*.addon', 'build/Zenithar')
+copy(r'src/xml/*.xml', 'build/Zenithar')
+copy(r'build/media/*.dds', 'build/Zenithar/media')
 
-# shutil.copytree('media', '_build/AutoRecruit/media')
-# shutil.copytree('lang', '_build/AutoRecruit/lang')
+# shutil.copytree('media', 'build/Zenithar/media')
+# shutil.copytree('lang', 'build/Zenithar/lang')
 
-with open('AutoRecruit.addon', 'r') as inFile:
+with open('src/Zenithar.addon', 'r') as inFile:
     txt = inFile.read()
     # txt = re.sub(r'## Version: \w+', f"## Version: {version}", txt)
     # txt = re.sub(r'## AddOnVersion: \w+', f"## AddOnVersion: {addOnVersion}", txt)
-    with open('_build/AutoRecruit/AutoRecruit.addon', 'w') as outFile:
+    with open('build/Zenithar/Zenithar.addon', 'w') as outFile:
         outFile.write(txt)
 
-with open('AutoRecruit.lua', 'r') as inFile:
-    lua = inFile.read()
-    lua = re.sub(r'appVersion = "[^"]*"', f'appVersion = "{version}"', lua)
-    with open('_build/AutoRecruit/AutoRecruit.lua', 'w') as outFile:
-        outFile.write(lua)
+#with open('Zenithar.lua', 'r') as inFile:
+#    lua = inFile.read()
+#    lua = re.sub(r'appVersion = "[^"]*"', f'appVersion = "{version}"', lua)
+#    with open('build/Zenithar/Zenithar.lua', 'w') as outFile:
+#        outFile.write(lua)
 
-shutil.make_archive(f"_build/AutoRecruit-v{version}", 'zip', root_dir='_build', base_dir='AutoRecruit')
+shutil.make_archive(f"build/Zenithar-v{version}", 'zip', root_dir='build', base_dir='Zenithar')
