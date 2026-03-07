@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Set common output paths early via Directory.Build.props so MSBuild imports them before Microsoft.Common.props -->
+    <BaseOutputPath Condition="'$(BaseOutputPath)'==''">build\bin\</BaseOutputPath>
+    <BaseIntermediateOutputPath Condition="'$(BaseIntermediateOutputPath)'==''">build\obj\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>

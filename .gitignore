@@ -1,0 +1,12 @@
+.vs
+WinFormsApp.Package/bin
+WinFormsApp.Package/obj
+*.user
+/ZenitharClientPackage/AppPackages
+build/bin
+build/obj
+build/ZenitharClient.iss
+build/artifacts
+build/installer
+build/publish
+Zenithar.pfx
