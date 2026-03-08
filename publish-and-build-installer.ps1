@@ -109,11 +109,6 @@ Name: "{userdesktop}\Zenithar"; Filename: "{app}\$appExe"; Tasks: desktopicon
 [Run]
 Filename: "{app}\$appExe"; Description: "Launch Zenithar"; Flags: nowait postinstall skipifsilent
 
-[INI]
-Filename: "{userappdata}\Zenithar\config.ini"; Section: "Auth"; Key: "Endpoint"; String: "{code:GetEndpoint}"
-Filename: "{userappdata}\Zenithar\config.ini"; Section: "Auth"; Key: "GuildToken"; String: "{code:GetGuildToken}"
-Filename: "{userappdata}\Zenithar\config.ini"; Section: "Auth"; Key: "ClientSecret"; String: "{code:GetClientSecret}"
-
 [Code]
 function InitializeSetup: Boolean;
 begin
@@ -124,125 +119,6 @@ begin
   end
   else
     Result := True;
-end;
-
-var
-  SerialPage: TWizardPage;
-  EndpointEdit, GuildTokenEdit, ClientSecretEdit: TEdit;
-  EndpointLabel, GuildTokenLabel, ClientSecretLabel: TNewStaticText;
-  ConfigFile: string;
-  ExistingGuildToken: string;
-  ExistingClientSecret: string;
-
-procedure InitializeWizard;
-begin
-  SerialPage := CreateCustomPage(
-    wpUserInfo,
-    'Zenithar Settings',
-    'Enter your Server Endpoint, Guild Token and Client Secret to continue.'
-  );
-
-  { Endpoint Label }
-  EndpointLabel := TNewStaticText.Create(SerialPage);
-  EndpointLabel.Parent := SerialPage.Surface;
-  EndpointLabel.Caption := 'Server Endpoint:';
-  EndpointLabel.Top := ScaleY(16);
-  EndpointLabel.Left := ScaleX(0);
-
-  { Endpoint Edit }
-  EndpointEdit := TEdit.Create(SerialPage);
-  EndpointEdit.Parent := SerialPage.Surface;
-  EndpointEdit.Top := EndpointLabel.Top + EndpointLabel.Height + ScaleY(4);
-  EndpointEdit.Left := ScaleX(0);
-  EndpointEdit.Width := ScaleX(300);
-
-  { Guild Token Label }
-  GuildTokenLabel := TNewStaticText.Create(SerialPage);
-  GuildTokenLabel.Parent := SerialPage.Surface;
-  GuildTokenLabel.Caption := 'Guild Token:';
-  GuildTokenLabel.Top := EndpointEdit.Top + EndpointEdit.Height + ScaleY(12);
-  GuildTokenLabel.Left := ScaleX(0);
-
-  { Guild Token Edit }
-  GuildTokenEdit := TEdit.Create(SerialPage);
-  GuildTokenEdit.Parent := SerialPage.Surface;
-  GuildTokenEdit.Top := GuildTokenLabel.Top + GuildTokenLabel.Height + ScaleY(4);
-  GuildTokenEdit.Left := ScaleX(0);
-  GuildTokenEdit.Width := ScaleX(300);
-
-  { Client Secret Label }
-  ClientSecretLabel := TNewStaticText.Create(SerialPage);
-  ClientSecretLabel.Parent := SerialPage.Surface;
-  ClientSecretLabel.Caption := 'Client Secret:';
-  ClientSecretLabel.Top := GuildTokenEdit.Top + GuildTokenEdit.Height + ScaleY(12);
-  ClientSecretLabel.Left := ScaleX(0);
-
-  { Client Secret Edit }
-  ClientSecretEdit := TEdit.Create(SerialPage);
-  ClientSecretEdit.Parent := SerialPage.Surface;
-  ClientSecretEdit.Top := ClientSecretLabel.Top + ClientSecretLabel.Height + ScaleY(4);
-  ClientSecretEdit.Left := ScaleX(0);
-  ClientSecretEdit.Width := ScaleX(300);
-
-  ConfigFile := ExpandConstant('{userappdata}\Zenithar\config.ini');
-
-  if FileExists(ConfigFile) then
-  begin
-    ExistingGuildToken :=
-      GetIniString('Auth', 'GuildToken', '', ConfigFile);
-    ExistingClientSecret :=
-      GetIniString('Auth', 'ClientSecret', '', ConfigFile);
-
-    if ExistingGuildToken <> '' then
-      GuildTokenEdit.Text := ExistingGuildToken;
-
-    if ExistingClientSecret <> '' then
-      ClientSecretEdit.Text := ExistingClientSecret;
-  end;
-end;
-
-function NextButtonClick(CurPageID: Integer): Boolean;
-begin
-  if CurPageID = SerialPage.ID then
-  begin
-    if Trim(EndpointEdit.Text) = '' then
-    begin
-      MsgBox('Please enter your Server Endpoint.', mbError, MB_OK);
-      Result := False;
-      Exit;
-    end;
-
-    if Trim(GuildTokenEdit.Text) = '' then
-    begin
-      MsgBox('Please enter your Guild Token.', mbError, MB_OK);
-      Result := False;
-      Exit;
-    end;
-
-    if Trim(ClientSecretEdit.Text) = '' then
-    begin
-      MsgBox('Please enter your Client Secret.', mbError, MB_OK);
-      Result := False;
-      Exit;
-    end;
-  end;
-
-  Result := True;
-end;
-
-function GetEndpoint(Param: String): String;
-begin
-  Result := EndpointEdit.Text;
-end;
-
-function GetGuildToken(Param: String): String;
-begin
-  Result := GuildTokenEdit.Text;
-end;
-
-function GetClientSecret(Param: String): String;
-begin
-  Result := ClientSecretEdit.Text;
 end;
 "@
 
