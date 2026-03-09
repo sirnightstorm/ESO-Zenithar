@@ -10,11 +10,11 @@ using System.Windows.Forms;
 
 namespace ZenitharClient.Src
 {
-    public partial class SettingsForm : Form
+    internal partial class SettingsForm : Form
     {
-        private bool hadValidSettingsOnLoad = Program.HasValidSettings();
+        private bool hadValidSettingsOnLoad = Program.config.IsValid();
 
-        public SettingsForm()
+        internal SettingsForm()
         {
             InitializeComponent();
         }
@@ -27,8 +27,8 @@ namespace ZenitharClient.Src
 
         private void LoadSettings()
         {
-            txtServerEndpoint.Text = Properties.Settings.Default.ServerEndpoint;
-            txtGuildToken.Text = Properties.Settings.Default.GuildToken;
+            txtServerEndpoint.Text = Program.config.ServerEndpoint;
+            txtGuildToken.Text = Program.config.GuildToken;
 
             //settingsTable.Rows.Clear(); // Clear existing data  
 
@@ -53,24 +53,27 @@ namespace ZenitharClient.Src
 
         private void txtServerEndpoint_TextChanged(object sender, EventArgs e)
         {
-            Properties.Settings.Default.ServerEndpoint = txtServerEndpoint.Text;
         }
 
         private void txtGuildToken_TextChanged(object sender, EventArgs e)
         {
-            Properties.Settings.Default.GuildToken = txtGuildToken.Text;
         }
 
         private void SettingsForm_FormClosed(object sender, FormClosedEventArgs e)
         {
-            Properties.Settings.Default.Save();
+        }
 
-            // Guard against Program.context being null to avoid CS8602.
-            if (!hadValidSettingsOnLoad && Program.HasValidSettings())
+        private void SettingsForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            Program.config.ServerEndpoint = txtServerEndpoint.Text;
+            Program.config.GuildToken = txtGuildToken.Text;
+            Program.config.Save();
+
+            if (!hadValidSettingsOnLoad && Program.config.IsValid())
             {
                 Program.context?.StartWatcher();
             }
-            else if (!Program.HasValidSettings())
+            else if (!Program.config.IsValid())
             {
                 Program.context?.SetIcon(ClientState.Error);
                 Program.context?.SetTooltip("Invalid settings");

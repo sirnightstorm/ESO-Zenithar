@@ -22,29 +22,5 @@ namespace ZenitharClient.Properties {
                 return defaultInstance;
             }
         }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string ServerEndpoint {
-            get {
-                return ((string)(this["ServerEndpoint"]));
-            }
-            set {
-                this["ServerEndpoint"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string GuildToken {
-            get {
-                return ((string)(this["GuildToken"]));
-            }
-            set {
-                this["GuildToken"] = value;
-            }
-        }
     }
 }

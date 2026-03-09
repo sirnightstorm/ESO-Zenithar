@@ -32,15 +32,24 @@ namespace ZenitharClient.Src
     public static class SavedVarsProcessor
     {
         public static long guildId = 767808;
-     
-        public static void Process(LuaDataRoot dataRoot, Queue<JSONTransaction> txnQueue, out string language, TrayApplicationContext context)
+
+        public static string GetLanguage(LuaDataRoot dataRoot)
         {
-            language = "en";
+            foreach (var (accountName, characterMap) in dataRoot.Default)
+            {
+                var accountWide = characterMap["$AccountWide"];
+                return accountWide.language;
+            }
+            return "en";
+        }
+
+        internal static async Task Process(LuaDataRoot dataRoot, DB db, TrayApplicationContext context)
+        {
+            await db.BeginTransaction();
 
             foreach (var (accountName, characterMap) in dataRoot.Default)
             {
                 var accountWide = characterMap["$AccountWide"];
-                language = accountWide.language;
 
                 if (accountWide.guilds.TryGetValue($"guild:{guildId}", out var guild))
                 {
@@ -54,7 +63,20 @@ namespace ZenitharClient.Src
                             var user = guildData.users.FirstOrDefault(u => u.Value.id == txn.user);
 
                             var item = guildData.items.FirstOrDefault(i => i.Value.id == txn.item);
-                            var jsonTxn = new JSONTransaction
+
+                            await db.InsertTransaction(
+                                txnId,
+                                txn.ts,
+                                user.Key,
+                                txn.gold > 0 ? "deposit" : "withdrawal",
+                                item.Value?.name ?? "Gold",
+                                txn.qty != 0 ? Math.Abs(txn.qty) : null,
+                                txn.gold,
+                                item.Key,
+                                user.Value.rankIndex
+                                );
+
+                            /*var jsonTxn = new JSONTransaction
                             {
                                 eventId = txnId,
                                 epoch = txn.ts,
@@ -66,13 +88,15 @@ namespace ZenitharClient.Src
                                 account = user.Key,
                                 accountRank = user.Value.rankIndex
                             };
-                            txnQueue.Enqueue(jsonTxn);
+                            txnQueue.Enqueue(jsonTxn);*/
                         }
                     }
                 }
 
-                Console.WriteLine($"Key = {accountName}, Value = {accountWide}");
+                //Console.WriteLine($"Key = {accountName}, Value = {accountWide}");
             }
+
+            await db.CommitTransaction();
         }
     }
 }

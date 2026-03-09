@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
 using WinFormsApp;
 
 namespace ZenitharClient.Src
@@ -9,31 +10,28 @@ namespace ZenitharClient.Src
     public class SavedVarsWatcher
     {
         private readonly TrayApplicationContext context;
-        private Queue<JSONTransaction> txnQueue = new Queue<JSONTransaction>();
 
         private FileSystemWatcher? watcher;
         private readonly Dictionary<string, System.Timers.Timer> _timers = new();
 
-        //private Config config;
+        private DB db;
 
         public SavedVarsWatcher(TrayApplicationContext context)
         {
             this.context = context;
 
-            string configPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Zenithar",
-                "config.json"
+            string dbPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Zenithar", "app.sqlite"
             );
-
-            //this.config = new Config(configPath);
+            this.db = new DB(dbPath);
         }
 
         public async Task Start()
         {
             var svPath = GetSavedVarsPath();
 
-            if (Program.HasValidSettings())
+            if (Program.config.IsValid())
             {
                 await Process(Path.Combine(svPath, "Zenithar.lua"));
             }
@@ -69,47 +67,68 @@ namespace ZenitharClient.Src
         {
             context.SetIcon(ClientState.Active);
             context.SetTooltip("Reading transactions...");
-            var data = SavedVarsParser.ParseSavedVars(svFile);
-            if (data != null)
+
+            try
             {
-                if (!SavedVarsParser.IsProcessed(data))
+                var data = SavedVarsParser.ParseSavedVars(svFile);
+                if (data != null)
                 {
-                    context.SetTooltip("Processing transactions...");
-                    SavedVarsProcessor.Process(data, txnQueue, out var language, context);
-
-                    context.SetTooltip("Uploading transactions...");
-                    await JSONUploader.Process(txnQueue, language, context);
-
-                    context.SetTooltip("Waiting for ESO to exit...");
-                    context.SetIcon(ClientState.Waiting);
-                    if (await AppExitWatcher.WaitForESOExit())
+                    if (!SavedVarsParser.IsProcessed(data))
                     {
-                        context.SetTooltip("Marking transactions processed.");
+                        context.SetTooltip("Processing transactions...");
+                        var language = SavedVarsProcessor.GetLanguage(data);
+                        await SavedVarsProcessor.Process(data, db, context);
+
+                        context.SetTooltip("Uploading transactions...");
+                        await JSONUploader.Process(db, language, context);
+
+                        context.SetTooltip("Waiting for ESO to exit...");
+                        context.SetIcon(ClientState.Waiting);
+
+                        Program.context?.WaitForESOExit(svFile, db);
                         await Task.Delay(1000);
-                        SavedVarsParser.SetProcessed(svFile);
+
+                        /*if (await AppExitWatcher.WaitForESOExit())
+                        {
+                            context.SetTooltip("Marking transactions processed.");
+                            await Task.Delay(1000);
+                            SavedVarsParser.SetProcessed(svFile);
+                            await db.RemoveUploadedTransactions();
+                        }*/
                     }
                 }
-            }
 
-            if (!AppExitWatcher.active)
+                if (!AppExitWatcher.active)
+                {
+                    context.SetTooltip("Watching for changes...");
+                    context.SetIcon(ClientState.Inactive);
+                }
+            }
+            catch (FileNotFoundException)
             {
-                context.SetTooltip("Watching for changes...");
+                LogForm.Log($"Saved variables file not found at '{svFile}'");
                 context.SetIcon(ClientState.Inactive);
+                context.SetTooltip("Saved variables file not found");
+            }
+            catch (JsonException ex)
+            {
+                LogForm.Log($"Exception parsing saved variables: {ex.Message}");
+                context.SetIcon(ClientState.Error);
+                context.SetTooltip("Failed to parse saved variables");
             }
         }
 
         public String GetSavedVarsPath()
         {
             String path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Elder Scrolls Online", "live", "SavedVariables");
-
-        LogForm.Log("Saved vars: " + path);
+            LogForm.Log("Saved vars: " + path);
 
             return path;
         }
 
         private void OnChanged(object sender, FileSystemEventArgs e)
         {
-            if (!Program.HasValidSettings())
+            if (!Program.config.IsValid())
             {
                 context.SetIcon(ClientState.Error);
                 context.SetTooltip("Invalid Settings");

@@ -78,6 +78,7 @@ $installerOut = Join-Path $scriptDir "build\installer"
 if (-not (Test-Path $installerOut)) { New-Item -ItemType Directory -Path $installerOut | Out-Null }
 
 # Create Inno Setup script
+# Help: https://jrsoftware.org/ishelp/
 $issPath = Join-Path $scriptDir "build\\ZenitharClient.iss"
 $issContent = @"
 [Setup]

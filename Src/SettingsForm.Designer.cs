@@ -95,6 +95,7 @@
             Controls.Add(groupBox1);
             Name = "SettingsForm";
             Text = "SettingsForm";
+            FormClosing += SettingsForm_FormClosing;
             FormClosed += SettingsForm_FormClosed;
             Load += SettingsForm_Load;
             groupBox1.ResumeLayout(false);

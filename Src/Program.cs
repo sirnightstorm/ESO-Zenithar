@@ -6,9 +6,12 @@ namespace ZenitharClient.Src
 {
     internal static class Program
     {
-        internal static string ClientSecret = "QWXQeKqtrJWBoECC8LPIMWsZYd4yLCMa";
+        internal const string ClientSecret = "QWXQeKqtrJWBoECC8LPIMWsZYd4yLCMa";
 
         public static TrayApplicationContext? context = null;
+
+        public static readonly Config config = new Config(GetConfigPath());
+
         /// <summary>
         ///  The main entry point for the application.
         /// </summary>
@@ -29,42 +32,13 @@ namespace ZenitharClient.Src
 
             context = new TrayApplicationContext();
 
-            //Application.Run(new Form1());
             Application.Run(context);
         }
 
-        public static bool HasValidSettings()
+        private static string GetConfigPath()
         {
-            return !string.IsNullOrWhiteSpace(Settings.Default.ServerEndpoint) &&
-                   !string.IsNullOrWhiteSpace(Settings.Default.GuildToken);
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                                     "Zenithar", "config.json");
         }
-
-        //public static string GetClientSecret()
-        //{
-        //    if (!string.IsNullOrWhiteSpace(Settings.Default.ClientSecret))
-        //    {
-        //        Debug.WriteLine($"Client secret already exists: {Settings.Default.ClientSecret}");
-        //        return Settings.Default.ClientSecret;
-        //    }
-        //    // Generate a random 64-character hex string for the client secret
-        //    var bytes = new byte[32]; // 16 bytes = 128 bits = 32 hex chars
-        //    using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
-        //    rng.GetBytes(bytes);
-        //    string clientSecret = Convert.ToHexString(bytes).ToLowerInvariant();
-        //    Debug.WriteLine($"Generated Client Secret: {clientSecret}");
-        //    Settings.Default.ClientSecret = clientSecret;
-        //    Settings.Default.Save();
-
-        //    return clientSecret;
-        //}
-
-        //public static void UploadJSONTransactions(Queue<JSONTransaction> txnQueue)
-        //{
-        //    SynchronizationContext.Current.Post(async _ =>
-        //    {
-        //        await JSONUploader.Process(txnQueue);
-        //    }, null);
-        //}
-
     }
 }

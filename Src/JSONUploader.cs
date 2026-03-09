@@ -21,31 +21,40 @@ namespace ZenitharClient.Src
             return Convert.ToHexString(hash).ToLowerInvariant();
         }
 
-        internal static async Task Process(Queue<JSONTransaction> txnQueue, string language, TrayApplicationContext context)
+        internal static async Task Process(DB db, string language, TrayApplicationContext context)
         {
-            while (txnQueue.Count > 0)
+            while (true)
             {
-                var batch = TakeFromQueue(txnQueue, 200).ToList();
+                //var batch = TakeFromQueue(txnQueue, 200).ToList();
+                var batch = await db.GetUnuploadedTransactions(200);
+                if (batch.Count == 0)
+                {
+                    break;
+                }
+                var totalTxns = await db.GetUnuploadedTransactionCount();
+
                 try
                 {
-                    context.SetTooltip($"Uploading {batch.Count} " + (batch.Count != 1 ? "transactions" : "transaction") + $" ({txnQueue.Count} left)");
+                    //context.SetTooltip($"Uploading {batch.Count} " + (batch.Count != 1 ? "transactions" : "transaction") + $" ({txnQueue.Count} left)");
+                    context.SetTooltip($"Uploading {batch.Count} of {totalTxns} " + (totalTxns != 1 ? "transactions" : "transaction"));
                     await SendBatch(batch, language);
 
-                    if (txnQueue.Count > 0)
+                    await db.MarkTransactionsAsUploaded(batch);
+
+                    if (await db.GetUnuploadedTransactionCount() > 0)
                     {
-                        LogForm.Log("Waiting 5s");
-                        await Task.Delay(5000);
+                        await Task.Delay(1000);
                     }
                 }
                 catch (Exception ex)
                 {
                     LogForm.Log($"Error sending batch: {ex.Message}");
-                    // Re-enqueue failed transactions
-                    foreach (var item in batch)
-                    {
-                        txnQueue.Enqueue(item);
-                    }
-                    LogForm.Log("Requeued transactions. Waiting 60s");
+                    //// Re-enqueue failed transactions
+                    //foreach (var item in batch)
+                    //{
+                    //    txnQueue.Enqueue(item);
+                    //}
+                    LogForm.Log("Waiting 60s");
                     await Task.Delay(60000);
                 }
             }
@@ -54,8 +63,8 @@ namespace ZenitharClient.Src
 
         internal static async Task SendBatch(List<JSONTransaction> txnList, string language)
         {
-            String guildToken = Properties.Settings.Default.GuildToken;
-            String endpoint = Properties.Settings.Default.ServerEndpoint;
+            string? guildToken = Program.config.GuildToken;
+            string? endpoint = Program.config.ServerEndpoint;
 
 
             if (string.IsNullOrWhiteSpace(guildToken) || string.IsNullOrWhiteSpace(endpoint))

@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-
+using WinFormsApp;
 
 namespace ZenitharClient.Src
 {
@@ -194,14 +194,7 @@ namespace ZenitharClient.Src
 
         public static LuaDataRoot? ParseSavedVars(string svFilePath)
         {
-            if (!File.Exists(svFilePath))
-                return null;
-
             var lua = File.ReadAllText(svFilePath);
-
-            if (string.IsNullOrWhiteSpace(lua))
-                return null;
-
             var dataBlock = ExtractLuaBlock(lua, "Zenithar_data");
             var json = Convert(dataBlock);
             return JsonSerializer.Deserialize<LuaDataRoot>(json) ?? new LuaDataRoot();
@@ -225,7 +218,13 @@ namespace ZenitharClient.Src
         {
             var original = File.ReadAllText(svFilePath);
 
-            string updated = original.Replace("[\"processed\"] = 0", "[\"processed\"] = 1");
+            //string updated = original.Replace("[\"processed\"] = 0", "[\"processed\"] = 1");
+            string updated = Regex.Replace(
+                original,
+                @"\[""processed""\]\s*=\s*[\d-]+",
+                @"[""processed""] = 1"
+            );
+
 
             File.WriteAllText(svFilePath, updated);
         }

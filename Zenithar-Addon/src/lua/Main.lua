@@ -23,17 +23,23 @@ local dataDefaults = {
 	processed = 0,
 }
 
-local logger = LibDebugLogger and LibDebugLogger(Zen.name)
+Zen.logger = LibDebugLogger and LibDebugLogger(Zen.name)
 
 function Zen.Log(...)
-	if logger and Zen.prefs and Zen.prefs["loggingEnabled"] then
-		logger:Debug(string.format(...))
+	if Zen.logger and Zen.prefs and Zen.prefs["loggingEnabled"] then
+		Zen.logger:Info(string.format(...))
+	end
+end
+
+function Zen.LogDebug(...)
+	if Zen.logger and Zen.prefs and Zen.prefs["loggingEnabled"] then
+		Zen.logger:Debug(string.format(...))
 	end
 end
 
 function Zen.LogWarning(...)
-	if logger and Zen.prefs and Zen.prefs["loggingEnabled"] then
-		logger:Warn(string.format(...))
+	if Zen.logger and Zen.prefs and Zen.prefs["loggingEnabled"] then
+		Zen.logger:Warn(string.format(...))
 	end
 end
 

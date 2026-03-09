@@ -6,6 +6,7 @@ using System.Text;
 using WinFormsApp;
 using ZenitharClient;
 using ZenitharClient.Properties;
+using static System.Net.WebRequestMethods;
 
 namespace ZenitharClient.Src
 {
@@ -19,11 +20,12 @@ namespace ZenitharClient.Src
 
     public class TrayApplicationContext : ApplicationContext
     {
-        public SavedVarsWatcher? watcher;
+        public SavedVarsWatcher watcher;
         private NotifyIcon trayIcon;
         private SynchronizationContext synchronizationContext;
 
         private LogForm? logForm;
+        private SettingsForm? settingsForm;
 
         public TrayApplicationContext()
         {
@@ -45,12 +47,19 @@ namespace ZenitharClient.Src
             {
                 if (e.Button == MouseButtons.Left)
                 {
-                    Open(sender, e);
+                    if (Program.config.IsValid())
+                    {
+                        Open(sender, e);
+                    }
+                    else
+                    {
+                        Settings(sender, e);
+                    }
                 }
             };
 
 
-            SetIcon(Program.HasValidSettings() ? ClientState.Inactive : ClientState.Error);
+            SetIcon(Program.config.IsValid() ? ClientState.Inactive : ClientState.Error);
 
             watcher = new SavedVarsWatcher(this);
             StartWatcher();
@@ -67,6 +76,20 @@ namespace ZenitharClient.Src
             Task.Run(async () => await watcher.Start());
         }
 
+        internal void WaitForESOExit(string svFile, DB db)
+        {
+            Task.Run(async () =>
+            {
+                if (await AppExitWatcher.WaitForESOExit())
+                {
+                    SetTooltip("Marking transactions processed.");
+                    await Task.Delay(1000);
+                    SavedVarsParser.SetProcessed(svFile);
+                    await db.RemoveUploadedTransactions();
+                }
+            });
+        }
+
         public void StopWatcher()
         {
             watcher.Stop();
@@ -74,14 +97,20 @@ namespace ZenitharClient.Src
 
         private void Settings(object? sender, EventArgs e)
         {
-            using var f = new SettingsForm();
-            f.ShowDialog();
+            if (settingsForm == null || settingsForm.IsDisposed)
+            {
+                settingsForm = new SettingsForm();
+                settingsForm.FormClosed += (_, __) => settingsForm = null;
+                settingsForm.ShowDialog();
+            }
+            else
+            {
+                settingsForm.Activate();
+            }
         }
 
         void Open(object? sender, EventArgs e)
         {
-            LogForm.Log("Opening log form...");
-
             if (logForm == null || logForm.IsDisposed)
             {
                 logForm = new LogForm();
@@ -92,19 +121,6 @@ namespace ZenitharClient.Src
             {
                 logForm.Activate();
             }
-
-
-            // Handle opening the main form or other actions here
-            //using (var f = new LogForm())
-            //{
-            //    var result = f.ShowDialog();
-
-            //    if (result == DialogResult.OK)
-            //    {
-            //        // read properties from f
-            //    }
-            //}
-            LogForm.Log("Log form opened.");
         }
 
         void Exit(object? sender, EventArgs e)
