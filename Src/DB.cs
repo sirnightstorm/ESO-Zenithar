@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.IO;
 
 namespace ZenitharClient.Src
 {
@@ -12,6 +13,11 @@ namespace ZenitharClient.Src
 
         internal DB(string dbPath)
         {
+            // Ensure the directory for the database exists
+            var dir = Path.GetDirectoryName(dbPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
             connection = new SqliteConnection($"Data Source={dbPath}");
             connection.Open();
             CreateSchema();

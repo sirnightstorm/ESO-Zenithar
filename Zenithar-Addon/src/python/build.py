@@ -25,8 +25,7 @@ print(f"AddOnVersion {addOnVersion}")
 if os.path.exists("build/Zenithar"):
     shutil.rmtree('build/Zenithar')
 
-os.mkdir('build/Zenithar')
-os.mkdir('build/Zenithar/media')
+os.makedirs('build/Zenithar/media', exist_ok=True)
 
 copy(r'src/lua/*.lua', 'build/Zenithar')
 copy(r'src/xml/*.xml', 'build/Zenithar')

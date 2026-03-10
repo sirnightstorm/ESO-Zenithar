@@ -2,7 +2,7 @@ param(
   [string] $ProjectPath = "ZenitharClient.csproj",
   [string] $Configuration = "Release",
   [string] $Runtime = "win-x64",
-  [string] $Version = "0.2.0",
+  [string] $Version = "0.3.0",
   [bool] $SelfContained = $true,
   [bool] $PublishSingleFile = $true,
   [bool] $PublishTrimmed = $false,
@@ -84,6 +84,7 @@ $issContent = @"
 [Setup]
 AppName=Zenithar
 AppVersion=$Version
+AppVerName=Zenithar v$Version
 DefaultDirName={localappdata}\Zenithar
 DefaultGroupName=Zenithar
 Uninstallable=yes
@@ -93,6 +94,8 @@ SolidCompression=yes
 OutputBaseFilename=ZenitharSetup-$Version
 OutputDir=$installerOut
 AppMutex=ZenitharMutex
+DisableProgramGroupPage=yes
+
 
 [Files]
 Source: "$publishDir\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -101,11 +104,12 @@ Source: "..\Zenithar-Addon\build\Zenithar\*"; DestDir: "{userdocs}\Elder Scrolls
 
 [Tasks]
 Name: "installaddon"; Description: "Install ESO Zenithar AddOn"
-Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
+Name: "startmenuicon"; Description: "Create a Start Menu shortcut"; GroupDescription: "Icons:"
+Name: "desktopicon";   Description: "Create a &desktop icon";       GroupDescription: "Icons:"; Flags: unchecked
 
 [Icons]
-Name: "{group}\Zenithar"; Filename: "{app}\$appExe"
-Name: "{userdesktop}\Zenithar"; Filename: "{app}\$appExe"; Tasks: desktopicon
+Name: "{autoprograms}\Zenithar Client"; Filename: "{app}\$appExe"; Tasks: startmenuicon
+Name: "{userdesktop}\Zenithar Client"; Filename: "{app}\$appExe"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\$appExe"; Description: "Launch Zenithar"; Flags: nowait postinstall skipifsilent
@@ -127,7 +131,7 @@ Set-Content -Path $issPath -Value $issContent -Encoding UTF8
 Write-Host "Wrote Inno script: $issPath"
 
 # Locate ISCC.exe (Inno Setup Compiler)
-if (-not $ISCCPath) {
+if ([string]::IsNullOrWhiteSpace($ISCCPath)) {
   $possible = @(
     "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe",
     "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
@@ -135,25 +139,53 @@ if (-not $ISCCPath) {
     "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
     "$env:LOCALAPPDATA\Inno Setup 6\ISCC.exe"
   )
-  foreach ($p in $possible) { if (Test-Path $p) { $ISCCPath = $p; break } }
-  if (-not $ISCCPath) {
+  foreach ($p in $possible) {
+    if (-not [string]::IsNullOrWhiteSpace($p) -and (Test-Path $p)) {
+      $ISCCPath = $p
+      break
+    }
+  }
+  if ([string]::IsNullOrWhiteSpace($ISCCPath)) {
     $pathCmd = Get-Command iscc.exe -ErrorAction SilentlyContinue
     if ($pathCmd) { $ISCCPath = $pathCmd.Source }
   }
 }
 
-if (-not (Test-Path $ISCCPath)) {
-  Write-Error "ISCC.exe not found. Install Inno Setup or pass -ISCCPath 'C:\\Path\\To\\ISCC.exe'"
+if ([string]::IsNullOrWhiteSpace($ISCCPath) -or -not (Test-Path $ISCCPath)) {
+
+  $url = "https://jrsoftware.org/isdl.php"
+
+  Write-Host ""
+  Write-Host "Inno Setup compiler (ISCC.exe) was not found." -ForegroundColor Red
+  Write-Host ""
+  Write-Host "Please install Inno Setup 6 from the following link:"
+  Write-Host $url -ForegroundColor Cyan
+  Write-Host ""
+  Write-Host "After installing, re-run this script."
+  Write-Host "You can also pass the path manually using:"
+  Write-Host "  -ISCCPath `"C:\Program Files (x86)\Inno Setup 6\ISCC.exe`"" -ForegroundColor Yellow
+  Write-Host ""
+
   exit 2
 }
 
 # Run Inno Setup Compiler
 Write-Host "Compiling installer with ISCC: $ISCCPath"
-& "$ISCCPath" $issPath 
+& $ISCCPath $issPath
 if ($LASTEXITCODE -ne 0) { Write-Error "ISCC failed"; exit $LASTEXITCODE }
 
-Write-Host "Installer created: $installerOut\\ZenitharSetup-$Version.exe"
+$installerExe = Join-Path $installerOut "ZenitharSetup-$Version.exe"
+Write-Host "Installer created: $installerExe"
 
-& signtool.exe sign /n "SirNightstorm" /fd SHA256 "$installerOut\ZenitharSetup-$Version.exe"
+$signTool = Get-Command signtool.exe -ErrorAction SilentlyContinue
+if ($signTool) {
+  & $signTool.Source sign /n "SirNightstorm" /fd SHA256 $installerExe
+  if ($LASTEXITCODE -ne 0) {
+    Write-Warning "signtool failed, but installer was created successfully."
+  }
+}
+else {
+  Write-Warning "signtool.exe not found. Skipping code signing."
+}
 
 Pop-Location
