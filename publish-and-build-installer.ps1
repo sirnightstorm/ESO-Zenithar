@@ -2,7 +2,7 @@ param(
   [string] $ProjectPath = "ZenitharClient.csproj",
   [string] $Configuration = "Release",
   [string] $Runtime = "win-x64",
-  [string] $Version = "0.2.0",
+  [string] $Version = "0.3.0",
   [bool] $SelfContained = $true,
   [bool] $PublishSingleFile = $true,
   [bool] $PublishTrimmed = $false,
@@ -84,6 +84,7 @@ $issContent = @"
 [Setup]
 AppName=Zenithar
 AppVersion=$Version
+AppVerName=Zenithar v$Version
 DefaultDirName={localappdata}\Zenithar
 DefaultGroupName=Zenithar
 Uninstallable=yes
@@ -93,6 +94,8 @@ SolidCompression=yes
 OutputBaseFilename=ZenitharSetup-$Version
 OutputDir=$installerOut
 AppMutex=ZenitharMutex
+DisableProgramGroupPage=yes
+
 
 [Files]
 Source: "$publishDir\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -101,11 +104,12 @@ Source: "..\Zenithar-Addon\build\Zenithar\*"; DestDir: "{userdocs}\Elder Scrolls
 
 [Tasks]
 Name: "installaddon"; Description: "Install ESO Zenithar AddOn"
-Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
+Name: "startmenuicon"; Description: "Create a Start Menu shortcut"; GroupDescription: "Icons:"
+Name: "desktopicon";   Description: "Create a &desktop icon";       GroupDescription: "Icons:"; Flags: unchecked
 
 [Icons]
-Name: "{group}\Zenithar"; Filename: "{app}\$appExe"
-Name: "{userdesktop}\Zenithar"; Filename: "{app}\$appExe"; Tasks: desktopicon
+Name: "{autoprograms}\Zenithar Client"; Filename: "{app}\$appExe"; Tasks: startmenuicon
+Name: "{userdesktop}\Zenithar Client"; Filename: "{app}\$appExe"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\$appExe"; Description: "Launch Zenithar"; Flags: nowait postinstall skipifsilent
