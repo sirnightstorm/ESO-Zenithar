@@ -1,7 +1,3 @@
-using System.Diagnostics;
-using WinFormsApp;
-using ZenitharClient.Properties;
-
 namespace ZenitharClient.Src
 {
     internal static class Program

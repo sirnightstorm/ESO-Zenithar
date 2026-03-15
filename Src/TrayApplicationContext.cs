@@ -1,31 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Resources;
-using System.Text;
-using WinFormsApp;
-using ZenitharClient;
-using ZenitharClient.Properties;
-using static System.Net.WebRequestMethods;
+﻿using ZenitharClient.Properties;
 
 namespace ZenitharClient.Src
 {
-    public enum ClientState
+    public class TrayApplicationContext : ApplicationContext, IObserver<Service>
     {
-        Inactive,
-        Active,
-        Waiting,
-        Error
-    }
-
-    public class TrayApplicationContext : ApplicationContext
-    {
-        public SavedVarsWatcher watcher;
+        internal SavedVarsWatcher watcher;
         private NotifyIcon trayIcon;
         private SynchronizationContext synchronizationContext;
 
+        private DB db;
+
         private LogForm? logForm;
         private SettingsForm? settingsForm;
+
+        private List<Service> services = new List<Service>();
 
         public TrayApplicationContext()
         {
@@ -58,18 +46,29 @@ namespace ZenitharClient.Src
                 }
             };
 
+            string dbPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Zenithar", "app.sqlite"
+            );
+            this.db = new DB(dbPath);
 
-            SetIcon(Program.config.IsValid() ? ClientState.Inactive : ClientState.Error);
+            Update();
+            //SetIcon(Program.config.IsValid() ? ServiceState.Idle : ServiceState.Error);
 
-            watcher = new SavedVarsWatcher(this);
-            StartWatcher();
+            watcher = new SavedVarsWatcher(this, db);
 
             synchronizationContext = SynchronizationContext.Current!;
 
-            //SynchronizationContext.Current?.Post(async _ =>
-            //{
-            //    await watcher.Start();
-            //}, null);
+            watcher.Subscribe(this);
+            services.Add(watcher);
+
+            db.Subscribe(this);
+            services.Add(db);
+
+            JSONUploader.Instance.Subscribe(this);
+            services.Add(JSONUploader.Instance);
+
+            StartWatcher();
         }
         public void StartWatcher()
         {
@@ -129,30 +128,59 @@ namespace ZenitharClient.Src
             Application.Exit();
         }
 
-        public void SetTooltip(string text)
+        public void Update()
         {
-            LogForm.Log(text);
+            var overallState = ServiceState.Idle;
+            var tooltipList = new List<string>();
 
+            if (!Program.config.IsValid())
+            {
+                overallState = ServiceState.Error;
+                tooltipList.Add("Configuration is invalid. Please open settings.");
+            }
+
+            foreach (var service in services)
+            {
+                if ((int)service.State > (int)overallState)
+                {
+                    overallState = service.State;
+                }
+                if (service.Activity != null)
+                {
+                    tooltipList.Add(service.Activity);
+                }
+                else
+                {
+                    tooltipList.Add(service.State.ToString());
+                }
+            }
+
+            SetIcon(overallState);
+            SetTooltip(string.Join("\n", tooltipList));
+        }
+
+        private void SetTooltip(string text)
+        {
             synchronizationContext?.Post(_ =>
             {
-                trayIcon.Text = "Zenithar: " + text;
+                trayIcon.Text = "Zenithar:\n" + text;
             }, null);
         }
 
-        public void SetIcon(ClientState state)
+        private void SetIcon(ServiceState state)
         {
             synchronizationContext?.Post(_ =>
             {
                 byte[] iconData;
                 switch (state)
                 {
-                    case ClientState.Active:
+                    case ServiceState.Active:
                         iconData = Resources.zenithar_star_active;
                         break;
-                    case ClientState.Waiting:
+                    case ServiceState.Waiting:
                         iconData = Resources.zenithar_star_waiting;
                         break;
-                    case ClientState.Error:
+                    case ServiceState.Error:
                         iconData = Resources.zenithar_star_error;
                         break;
                     default:
@@ -163,6 +191,29 @@ namespace ZenitharClient.Src
                 using var ms = new MemoryStream(iconData);
                 trayIcon.Icon = new Icon(ms);
             }, null);
+        }
+
+        public virtual void OnCompleted()
+        {
+        }
+
+        public virtual void OnError(Exception error)
+        {
+        }
+
+        public virtual void OnNext(Service value)
+        {
+            Update();
+            //Console.WriteLine($"The temperature is {value.Degrees}°C at {value.Date:g}");
+            //if (first)
+            //{
+            //    last = value;
+            //    first = false;
+            //}
+            //else
+            //{
+            //    Console.WriteLine($"   Change: {value.Degrees - last.Degrees}° in {value.Date.ToUniversalTime() - last.Date.ToUniversalTime():g}");
+            //}
         }
     }
 }

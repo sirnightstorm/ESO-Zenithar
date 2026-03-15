@@ -1,17 +1,12 @@
 ﻿using Microsoft.Data.Sqlite;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.IO;
 
 namespace ZenitharClient.Src
 {
-    internal class DB
+    internal class DB : Service
     {
         private SqliteConnection connection;
 
-        internal DB(string dbPath)
+        internal DB(string dbPath) : base("Database")
         {
             // Ensure the directory for the database exists
             var dir = Path.GetDirectoryName(dbPath);
@@ -21,6 +16,8 @@ namespace ZenitharClient.Src
             connection = new SqliteConnection($"Data Source={dbPath}");
             connection.Open();
             CreateSchema();
+
+            _ = UpdateState();
         }
 
         private void CreateSchema()
@@ -45,19 +42,39 @@ namespace ZenitharClient.Src
             cmd.ExecuteNonQuery();
         }
 
-        internal async Task BeginTransaction()
+        internal async Task UpdateState()
+        {
+            var unuploadedCount = await GetUnuploadedTransactionCount();
+            var count = await GetTransactionCount();
+
+            if (unuploadedCount > 0)
+            {
+                SetState(ServiceState.Waiting, $"{unuploadedCount} " + (unuploadedCount != 1 ? "transactions" : "transaction"));
+            }
+            else if (count > 0)
+            {
+                SetState(ServiceState.Waiting, "Waiting to clear");
+            }
+            else
+            {
+                SetState(ServiceState.Idle, "Empty");
+            }
+        }
+
+        internal async Task Begin()
         {
             using var cmd = connection.CreateCommand();
             cmd.CommandText = "BEGIN TRANSACTION;";
             await cmd.ExecuteNonQueryAsync();
         }
 
-        internal async Task CommitTransaction()
+        internal async Task Commit()
         {
             using var cmd = connection.CreateCommand();
             cmd.CommandText = "COMMIT;";
             await cmd.ExecuteNonQueryAsync();
         }
+
         internal async Task InsertTransaction(
             long eventId,
             long timestamp,
@@ -85,6 +102,8 @@ namespace ZenitharClient.Src
             cmd.Parameters.AddWithValue("$itemLink", (object?)itemLink ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$accountRank", (object?)accountRank ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync();
+
+            await UpdateState();
         }
 
         internal async Task<List<JSONTransaction>> GetUnuploadedTransactions(int batchSize)
@@ -130,6 +149,17 @@ namespace ZenitharClient.Src
             return (int)((long)(count ?? 0));
         }
 
+        internal async Task<int> GetTransactionCount()
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = @"
+                SELECT COUNT(*)
+                FROM transactions;
+            ";
+            var count = await cmd.ExecuteScalarAsync();
+            return (int)((long)(count ?? 0));
+        }
+
         internal async Task MarkTransactionsAsUploaded(List<JSONTransaction> transactions)
         {
             if (transactions == null || transactions.Count == 0)
@@ -146,6 +176,8 @@ namespace ZenitharClient.Src
                 WHERE eventId IN (" + string.Join(",", eventIds) + @");
             ";
             await cmd.ExecuteNonQueryAsync();
+
+            await UpdateState();
         }
 
         internal async Task RemoveUploadedTransactions()
@@ -157,6 +189,8 @@ namespace ZenitharClient.Src
                 VACUUM;
             ";
             await cmd.ExecuteNonQueryAsync();
+
+            await UpdateState();
         }
     }
 }

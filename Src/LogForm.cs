@@ -1,9 +1,4 @@
-using System.ComponentModel;
-using ZenitharClient.Src;
-using static System.Windows.Forms.DataFormats;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
-
-namespace WinFormsApp
+namespace ZenitharClient.Src
 {
     public partial class LogForm : Form
     {

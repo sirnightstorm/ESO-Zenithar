@@ -45,7 +45,7 @@ namespace ZenitharClient.Src
 
         internal static async Task Process(LuaDataRoot dataRoot, DB db, TrayApplicationContext context)
         {
-            await db.BeginTransaction();
+            await db.Begin();
 
             foreach (var (accountName, characterMap) in dataRoot.Default)
             {
@@ -96,7 +96,7 @@ namespace ZenitharClient.Src
                 //Console.WriteLine($"Key = {accountName}, Value = {accountWide}");
             }
 
-            await db.CommitTransaction();
+            await db.Commit();
         }
     }
 }

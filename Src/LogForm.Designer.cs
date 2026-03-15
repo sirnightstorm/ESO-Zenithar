@@ -1,4 +1,4 @@
-﻿namespace WinFormsApp
+﻿namespace ZenitharClient.Src
 {
     partial class LogForm
     {

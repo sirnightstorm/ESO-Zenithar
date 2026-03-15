@@ -1,14 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Configuration;
-using System.Data;
-using System.Diagnostics;
-using System.Drawing;
-using System.Text;
-using System.Windows.Forms;
-
-namespace ZenitharClient.Src
+﻿namespace ZenitharClient.Src
 {
     internal partial class SettingsForm : Form
     {
@@ -75,8 +65,7 @@ namespace ZenitharClient.Src
             }
             else if (!Program.config.IsValid())
             {
-                Program.context?.SetIcon(ClientState.Error);
-                Program.context?.SetTooltip("Invalid settings");
+                Program.context?.Update();
             }
         }
     }

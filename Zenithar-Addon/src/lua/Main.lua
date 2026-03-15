@@ -99,15 +99,14 @@ local function getRankIndex(guildId, userName)
 	return rankIndex
 end
 
-function Zen:GetUser(user, timestampS)
+function Zen:GetUser(user)
 	local guildId = self.prefs.guildId
 	local guildData = self:GetGuildData(guildId)
 
 	if guildData.users[user] == nil then
 		guildData.users[user] = {
 			id = self:GetNextId('user'),
-			rankIndex = getRankIndex(guildId, user), -- FIXME: Need to re-run this every load?
-			--initialScan = timestampS,
+			rankIndex = getRankIndex(guildId, user) -- FIXME: Need to re-run this every load?
 		}
 		Zen.Log("Created user '%s' id %d", user, guildData.users[user].id)
 	end
@@ -206,7 +205,6 @@ function Zen:StoreTransaction(userObj, txnType, info, event, gold)
 	local itemId
 	local qty = info.quantity
 	local userId = userObj.id
-	local userName = self:GetUserName(userObj.id)
 
 	if txnType == "+item" then
 		itemId = self:GetItem(info.itemLink).id

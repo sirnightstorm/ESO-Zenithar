@@ -1,19 +1,36 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using WinFormsApp;
 
 namespace ZenitharClient.Src
 {
-    public static class JSONUploader
+    public class JSONUploader : Service
     {
-        //private const string ApiUrl = "https://api.moraswhispers.com/api/ingest/batch";
+        private static JSONUploader? instance = null;
+        private static readonly object padlock = new object();
 
-        private static string ComputeSignature(string secret, long timestampSeconds, string rawBody)
+        private JSONUploader() : base("Uploader")
+        {
+        }
+
+        public static JSONUploader Instance
+
+        {
+            get
+            {
+                lock (padlock)
+                {
+                    if (instance == null)
+                    {
+                        instance = new JSONUploader();
+                    }
+                    return instance;
+                }
+            }
+        }
+
+        private string ComputeSignature(string secret, long timestampSeconds, string rawBody)
         {
             string message = $"{timestampSeconds}.{rawBody}";
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
@@ -21,11 +38,16 @@ namespace ZenitharClient.Src
             return Convert.ToHexString(hash).ToLowerInvariant();
         }
 
-        internal static async Task Process(DB db, string language, TrayApplicationContext context)
+        internal async Task Process(DB db, string language, TrayApplicationContext context)
         {
+            if (State != ServiceState.Idle)
+            {
+                return;
+            }
+
+            SetState(ServiceState.Active, "Uploading...");
             while (true)
             {
-                //var batch = TakeFromQueue(txnQueue, 200).ToList();
                 var batch = await db.GetUnuploadedTransactions(200);
                 if (batch.Count == 0)
                 {
@@ -35,33 +57,34 @@ namespace ZenitharClient.Src
 
                 try
                 {
-                    //context.SetTooltip($"Uploading {batch.Count} " + (batch.Count != 1 ? "transactions" : "transaction") + $" ({txnQueue.Count} left)");
-                    context.SetTooltip($"Uploading {batch.Count} of {totalTxns} " + (totalTxns != 1 ? "transactions" : "transaction"));
+                    SetState(State, $"Uploading {batch.Count} " + (batch.Count != 1 ? "transactions" : "transaction"));
+
                     await SendBatch(batch, language);
 
                     await db.MarkTransactionsAsUploaded(batch);
 
                     if (await db.GetUnuploadedTransactionCount() > 0)
                     {
+                        SetState(ServiceState.Active, $"Uploaded {batch.Count} " + (batch.Count != 1 ? "transactions" : "transaction"));
                         await Task.Delay(1000);
                     }
                 }
                 catch (Exception ex)
                 {
                     LogForm.Log($"Error sending batch: {ex.Message}");
-                    //// Re-enqueue failed transactions
-                    //foreach (var item in batch)
-                    //{
-                    //    txnQueue.Enqueue(item);
-                    //}
+
+                    SetState(ServiceState.Error, "Error uploading transactions");
+
                     LogForm.Log("Waiting 60s");
                     await Task.Delay(60000);
                 }
             }
             LogForm.Log("Queue is empty");
+
+            SetState(ServiceState.Idle);
         }
 
-        internal static async Task SendBatch(List<JSONTransaction> txnList, string language)
+        internal async Task SendBatch(List<JSONTransaction> txnList, string language)
         {
             string? guildToken = Program.config.GuildToken;
             string? endpoint = Program.config.ServerEndpoint;

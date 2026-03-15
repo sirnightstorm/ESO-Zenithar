@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
-using System.Text.Json;
-using WinFormsApp;
+﻿using System.Text.Json;
 
 namespace ZenitharClient.Src
 {
-    public class SavedVarsWatcher
+    internal class SavedVarsWatcher : Service
     {
         private readonly TrayApplicationContext context;
 
@@ -16,18 +11,13 @@ namespace ZenitharClient.Src
 
         private DB db;
 
-        public SavedVarsWatcher(TrayApplicationContext context)
+        internal SavedVarsWatcher(TrayApplicationContext context, DB db) : base("SavedVars")
         {
             this.context = context;
-
-            string dbPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Zenithar", "app.sqlite"
-            );
-            this.db = new DB(dbPath);
+            this.db = db;
         }
 
-        public async Task Start()
+        internal async Task Start()
         {
             var svPath = GetSavedVarsPath();
 
@@ -35,11 +25,11 @@ namespace ZenitharClient.Src
             {
                 await Process(Path.Combine(svPath, "Zenithar.lua"));
             }
-            else
-            {
-                context.SetIcon(ClientState.Error);
-                context.SetTooltip("Invalid Settings");
-            }
+            //else
+            //{
+            //    context.SetIcon(ClientState.Error);
+            //    context.SetTooltip("Invalid Settings");
+            //}
 
             watcher = new FileSystemWatcher();
 
@@ -53,7 +43,7 @@ namespace ZenitharClient.Src
             watcher.EnableRaisingEvents = true;
         }
 
-        public void Stop()
+        internal void Stop()
         {
             watcher?.Dispose();
             foreach (var timer in _timers.Values)
@@ -65,25 +55,21 @@ namespace ZenitharClient.Src
 
         private async Task Process(string svFile)
         {
-            context.SetIcon(ClientState.Active);
-            context.SetTooltip("Reading transactions...");
+            SetState(ServiceState.Active, "Reading transactions...");
 
             try
             {
                 var data = SavedVarsParser.ParseSavedVars(svFile);
                 if (data != null)
                 {
+                    var language = SavedVarsProcessor.GetLanguage(data);
+
                     if (!SavedVarsParser.IsProcessed(data))
                     {
-                        context.SetTooltip("Processing transactions...");
-                        var language = SavedVarsProcessor.GetLanguage(data);
+                        SetState(ServiceState.Active, "Processing transactions...");
                         await SavedVarsProcessor.Process(data, db, context);
 
-                        context.SetTooltip("Uploading transactions...");
-                        await JSONUploader.Process(db, language, context);
-
-                        context.SetTooltip("Waiting for ESO to exit...");
-                        context.SetIcon(ClientState.Waiting);
+                        SetState(ServiceState.Waiting, "Waiting for ESO to exit...");
 
                         Program.context?.WaitForESOExit(svFile, db);
                         await Task.Delay(1000);
@@ -96,25 +82,25 @@ namespace ZenitharClient.Src
                             await db.RemoveUploadedTransactions();
                         }*/
                     }
+
+                    // We hopefully have a language now - start JSONUploader!
+                    _ = JSONUploader.Instance.Process(db, language, context);
                 }
 
                 if (!AppExitWatcher.active)
                 {
-                    context.SetTooltip("Watching for changes...");
-                    context.SetIcon(ClientState.Inactive);
+                    SetState(ServiceState.Idle, "Watching for changes...");
                 }
             }
             catch (FileNotFoundException)
             {
                 LogForm.Log($"Saved variables file not found at '{svFile}'");
-                context.SetIcon(ClientState.Inactive);
-                context.SetTooltip("Saved variables file not found");
+                SetState(ServiceState.Error, "Saved variables file not found");
             }
             catch (JsonException ex)
             {
                 LogForm.Log($"Exception parsing saved variables: {ex.Message}");
-                context.SetIcon(ClientState.Error);
-                context.SetTooltip("Failed to parse saved variables");
+                SetState(ServiceState.Error, "Failed to parse saved variables");
             }
         }
 
@@ -130,8 +116,6 @@ namespace ZenitharClient.Src
         {
             if (!Program.config.IsValid())
             {
-                context.SetIcon(ClientState.Error);
-                context.SetTooltip("Invalid Settings");
                 return;
             }
 
@@ -142,7 +126,7 @@ namespace ZenitharClient.Src
                 return;
             }
 
-            context.SetTooltip("File change detected, waiting for completion...");
+            SetState(ServiceState.Waiting, "File change detected, waiting for completion...");
 
             timer = new System.Timers.Timer(500); // wait 500ms of quiet time
             timer.AutoReset = false;
