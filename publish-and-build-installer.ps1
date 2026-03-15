@@ -106,10 +106,12 @@ Source: "..\Zenithar-Addon\build\Zenithar\*"; DestDir: "{userdocs}\Elder Scrolls
 Name: "installaddon"; Description: "Install ESO Zenithar AddOn"
 Name: "startmenuicon"; Description: "Create a Start Menu shortcut"; GroupDescription: "Icons:"
 Name: "desktopicon";   Description: "Create a &desktop icon";       GroupDescription: "Icons:"; Flags: unchecked
+Name: "startupicon"; Description: "Launch Zenithar Client automatically when signing in"
 
 [Icons]
 Name: "{autoprograms}\Zenithar Client"; Filename: "{app}\$appExe"; Tasks: startmenuicon
 Name: "{userdesktop}\Zenithar Client"; Filename: "{app}\$appExe"; Tasks: desktopicon
+Name: "{userstartup}\Zenithar Client"; Filename: "{app}\$appExe"; Tasks: startupicon
 
 [Run]
 Filename: "{app}\$appExe"; Description: "Launch Zenithar"; Flags: nowait postinstall skipifsilent
